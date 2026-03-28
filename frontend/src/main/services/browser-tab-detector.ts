@@ -6,7 +6,7 @@ interface BrowserConfig {
   script: string;
 }
 
-const BROWSER_CONFIGS: Record<string, BrowserConfig> = {
+const MACOS_BROWSER_CONFIGS: Record<string, BrowserConfig> = {
   "com.google.Chrome": {
     name: "Chrome",
     script: `tell application "Google Chrome" to return (URL of active tab of front window) & "\t" & (title of active tab of front window)`,
@@ -28,13 +28,17 @@ const BROWSER_CONFIGS: Record<string, BrowserConfig> = {
 const warnedBrowsers = new Set<string>();
 
 export function isSupportedBrowser(bundleId: string): boolean {
-  return bundleId in BROWSER_CONFIGS;
+  return process.platform === "darwin" && bundleId in MACOS_BROWSER_CONFIGS;
 }
 
 export function detectBrowserTab(
   bundleId: string
 ): Promise<BrowserTabInfo | null> {
-  const config = BROWSER_CONFIGS[bundleId];
+  if (process.platform !== "darwin") {
+    return Promise.resolve(null);
+  }
+
+  const config = MACOS_BROWSER_CONFIGS[bundleId];
   if (!config) return Promise.resolve(null);
 
   return new Promise((resolve) => {
