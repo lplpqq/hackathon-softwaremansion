@@ -22,7 +22,6 @@ class Settings(BaseSettings):
     fishjam_management_token: str
     google_api_key: str
     gemini_model: str
-    gemini_system_instruction: str
 
 
 def load_settings() -> Settings:
