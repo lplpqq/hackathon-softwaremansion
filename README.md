@@ -27,6 +27,26 @@ For hackathon evaluation, the value of the project is in the integration:
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    U[User] --> O[Electron Overlay]
+    O --> C[Context Detection]
+    C --> D{Detected mode}
+    D -->|News| A[Article Analysis Flow]
+    D -->|Video| V[Live Audio Analysis Flow]
+    D -->|Idle| I[Passive Monitoring]
+
+    A --> B[FastAPI Backend]
+    B --> G[Gemini]
+    A --> H[Inline Highlighting in Browser]
+
+    V --> F[Fishjam Room]
+    F --> BA[Backend Agent]
+    BA --> GL[Gemini Live]
+    BA --> WS[WebSocket Stream]
+    WS --> O
+```
+
 ### Frontend
 
 The frontend lives in [`frontend`](./frontend) and is an Electron + React application.
@@ -58,6 +78,61 @@ Backend integrations:
 - `Gemini`: article analysis, title evaluation, live transcript chunk analysis
 - `Fishjam`: room creation, agent connection, real-time audio ingestion
 - `Custom parsers`: article and video metadata extraction for supported sources
+
+## Request flows
+
+### News article flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Electron as Electron Main Process
+    participant Browser
+    participant Renderer as React Overlay
+    participant Backend as FastAPI Backend
+    participant Gemini
+
+    User->>Browser: Opens a supported article
+    Electron->>Browser: Read active tab URL and title
+    Electron->>Electron: Classify domain as news
+    Electron->>Renderer: Push context update
+    Electron->>Backend: POST /check-article
+    Backend->>Backend: Parse article metadata and content
+    Backend->>Gemini: Analyze credibility and manipulation signals
+    Gemini-->>Backend: Structured JSON response
+    Backend-->>Electron: Article analysis result
+    Electron-->>Renderer: Show score and explanation
+    Electron->>Browser: Inject highlight script for risky fragments
+```
+
+### Live video/audio flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Renderer as React Overlay
+    participant Electron as Electron Main Process
+    participant Backend as FastAPI Backend
+    participant Fishjam
+    participant Agent as Analysis Agent
+    participant GeminiLive as Gemini Live
+
+    User->>Renderer: Starts live audio analysis
+    Renderer->>Electron: Request session creation
+    Electron->>Backend: POST /create-session
+    Backend->>Fishjam: Create room and peer token
+    Backend->>Agent: Start background analysis task
+    Backend-->>Electron: Return session data
+    Electron-->>Renderer: Provide peer token and ws path
+    Renderer->>Fishjam: Join room and publish system audio
+    Agent->>Fishjam: Receive audio stream
+    Agent->>GeminiLive: Send audio for transcription
+    GeminiLive-->>Agent: Transcript fragments
+    Agent->>Agent: Chunk transcript and analyze claims
+    Agent-->>Backend: Push JSON verdicts
+    Backend-->>Renderer: Stream results over WebSocket
+    Renderer-->>User: Display live verdict feed
+```
 
 ## Current scope
 
@@ -91,6 +166,48 @@ This is the honest current implementation based on the code in the repo:
     ├── src/renderer
     ├── package.json
     └── vite.config.ts
+```
+
+## Component map
+
+```mermaid
+flowchart TD
+    subgraph Frontend
+        M[main process]
+        R[renderer]
+        CP[context poller]
+        BD[browser tab detector]
+        AD[app detector]
+        BC[backend client]
+        FA[Fishjam audio hook]
+    end
+
+    subgraph Backend
+        API[FastAPI routes]
+        PARSERS[news and video parsers]
+        SESS[sessions manager]
+        AGENT[analysis agent]
+    end
+
+    subgraph External Services
+        FJ[Fishjam]
+        GM[Gemini]
+        GML[Gemini Live]
+    end
+
+    M --> CP
+    CP --> AD
+    CP --> BD
+    CP --> BC
+    R --> FA
+    BC --> API
+    API --> PARSERS
+    API --> GM
+    API --> SESS
+    SESS --> FJ
+    SESS --> AGENT
+    AGENT --> FJ
+    AGENT --> GML
 ```
 
 ## Local setup
