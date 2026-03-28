@@ -11,6 +11,7 @@ declare global {
     electronAPI: {
       getDesktopSources: () => Promise<{ id: string; name: string }[]>;
       getActiveWindows: () => Promise<ActiveWindow[]>;
+      onActiveWindowChanged: (callback: (windows: ActiveWindow[]) => void) => void;
     };
   }
 }
@@ -28,6 +29,9 @@ export default function App() {
 
   useEffect(() => {
     refresh();
+    window.electronAPI.onActiveWindowChanged((wins) => {
+      setWindows(wins);
+    });
   }, []);
 
   return (

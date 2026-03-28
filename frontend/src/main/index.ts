@@ -51,24 +51,48 @@ ipcMain.handle("get-desktop-sources", async () => {
   }));
 });
 
-// Get the active window, skipping our own Electron app
-ipcMain.handle("get-active-windows", async () => {
+async function getExternalActiveWindow() {
   const windows = await activeWin.getOpenWindows();
   const own = app.getPath("exe");
   const external = windows.find(
     (w) => w.owner.path?.toLowerCase() !== own.toLowerCase()
   );
-  if (!external) return [];
-  return [
-    {
-      pid: external.owner.processId,
-      name: external.owner.name,
-      title: external.title,
-    },
-  ];
+  if (!external) return null;
+  return {
+    pid: external.owner.processId,
+    name: external.owner.name,
+    title: external.title,
+  };
+}
+
+// Get the active window, skipping our own Electron app
+ipcMain.handle("get-active-windows", async () => {
+  const win = await getExternalActiveWindow();
+  return win ? [win] : [];
 });
 
-app.whenReady().then(createWindow);
+// Poll for active window changes and push to renderer
+function startActiveWindowTracking() {
+  let lastPid: number | null = null;
+  let lastTitle: string | null = null;
+
+  setInterval(async () => {
+    if (!mainWindow) return;
+    const win = await getExternalActiveWindow();
+    const pid = win?.pid ?? null;
+    const title = win?.title ?? null;
+    if (pid !== lastPid || title !== lastTitle) {
+      lastPid = pid;
+      lastTitle = title;
+      mainWindow.webContents.send("active-window-changed", win ? [win] : []);
+    }
+  }, 500);
+}
+
+app.whenReady().then(() => {
+  createWindow();
+  startActiveWindowTracking();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
