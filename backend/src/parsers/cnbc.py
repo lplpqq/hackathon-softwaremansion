@@ -1,10 +1,9 @@
-import json
 import re
 
 import requests
 from bs4 import BeautifulSoup
 
-from parsers.article_info import ArticleInfo, ArticleOrigin
+from src.parsers.article_info import ArticleInfo, ArticleOrigin
 
 
 def get_cnbc_article_info(url: str) -> ArticleInfo:

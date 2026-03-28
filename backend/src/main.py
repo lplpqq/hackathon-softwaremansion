@@ -5,8 +5,8 @@ uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 import logging
 import sys
 
-from src.config_reader import load_settings
 from src.api import create_app
+from src.config_reader import load_settings
 
 logging.basicConfig(
     level=logging.INFO,

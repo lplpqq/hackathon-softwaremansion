@@ -1,13 +1,3 @@
-"""
-Configuration module.
-
-Loads environment variables and defines constants used across the backend.
-"""
-
-import os
-from dataclasses import dataclass
-from functools import lru_cache
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

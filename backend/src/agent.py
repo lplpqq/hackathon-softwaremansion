@@ -5,13 +5,11 @@ Forwards Fishjam audio streams with Google Gemini Live API.
 import asyncio
 import logging
 from collections.abc import Callable, Awaitable
-from typing import Optional
-
-from google import genai
-from google.genai.types import Blob, Modality
 
 from fishjam import FishjamClient, AgentOptions
 from fishjam.integrations.gemini import GeminiIntegration
+from google import genai
+from google.genai.types import Blob, Modality
 
 from src.config_reader import Settings
 

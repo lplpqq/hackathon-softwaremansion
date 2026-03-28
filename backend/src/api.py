@@ -7,17 +7,14 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from google.genai.types import GenerateContentConfigOrDict
-from pydantic import BaseModel, Field
+from fishjam import FishjamClient, PeerOptions
 from google import genai
+from pydantic import BaseModel
 
-from fishjam import FishjamClient, PeerOptions, AgentOptions
-from fishjam.integrations.gemini import GeminiIntegration
-
-from parsers.bbc import get_bbc_article_info
-from parsers.cnbc import get_cnbc_article_info
-from .config_reader import Settings
-from .agent import run_analysis_agent
+from agent import run_analysis_agent
+from config_reader import Settings
+from src.parsers.bbc import get_bbc_article_info
+from src.parsers.cnbc import get_cnbc_article_info
 
 logger = logging.getLogger(__name__)
 
