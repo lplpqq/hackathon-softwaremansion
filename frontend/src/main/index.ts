@@ -3,6 +3,7 @@ import path from "path";
 import { ContextPoller } from "./services/context-poller";
 import { createTray } from "./tray";
 import { FullContext } from "./types";
+import { executeScriptInTab } from "./services/browser-tab-detector";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -90,6 +91,9 @@ function startPoller() {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("article-analysis-error", message);
       }
+    },
+    onHighlightScript: (script, bundleId) => {
+      executeScriptInTab(bundleId, script);
     },
   });
   poller.start();

@@ -219,3 +219,33 @@ function isProbablyUrl(value: string): boolean {
     return false;
   }
 }
+
+export function executeScriptInTab(
+  bundleId: string,
+  script: string,
+): Promise<void> {
+  if (process.platform !== "darwin") return Promise.resolve();
+
+  const config = MACOS_BROWSER_CONFIGS[bundleId];
+  if (!config) return Promise.resolve();
+
+  // Escape script for AppleScript string
+  const escapedScript = script.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+  let appleScript = "";
+  if (config.name === "Safari") {
+    appleScript = `tell application "Safari" to do JavaScript "${escapedScript}" in front document`;
+  } else {
+    // Chrome, Arc, Brave use the same command
+    appleScript = `tell application "${config.name}" to execute active tab of front window javascript "${escapedScript}"`;
+  }
+
+  return new Promise((resolve) => {
+    execFile("osascript", ["-e", appleScript], (error) => {
+      if (error) {
+        console.error(`[browser-tab] Script execution failed for ${config.name}:`, error);
+      }
+      resolve();
+    });
+  });
+}
