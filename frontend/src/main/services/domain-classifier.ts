@@ -31,9 +31,12 @@ function matchesAny(hostname: string, patterns: string[]): boolean {
 }
 
 export function classifyDomain(urlStr: string): DomainClassification {
-  let url: URL;
+  let hostname: string;
+  let pathname: string;
   try {
-    url = new URL(urlStr);
+    const url = new URL(urlStr);
+    hostname = url.hostname.toLowerCase();
+    pathname = url.pathname.toLowerCase();
   } catch {
     return {
       domain: "",
@@ -43,16 +46,13 @@ export function classifyDomain(urlStr: string): DomainClassification {
     };
   }
 
-  const hostname = url.hostname.toLowerCase();
   let isNewsDomain = matchesAny(hostname, NEWS_DOMAINS);
   const isVideoDomain = matchesAny(hostname, VIDEO_DOMAINS);
 
-  // Specific rule for BBC: only trigger if it's an article (/news/articles/)
-  if (
-    isNewsDomain &&
-    (hostname.endsWith("bbc.com") || hostname.endsWith("bbc.co.uk"))
-  ) {
-    if (!url.pathname.includes("/news/articles/")) {
+  // Specialized check for CNBC: Only count as news if it's an article (ends in .html)
+  if (matchesDomain(hostname, "cnbc.com")) {
+    const isArticle = pathname.endsWith(".html");
+    if (!isArticle) {
       isNewsDomain = false;
     }
   }
