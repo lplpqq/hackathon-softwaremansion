@@ -1,10 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  ipcMain,
-  desktopCapturer,
-  Tray,
-} from "electron";
+import { app, BrowserWindow, ipcMain, desktopCapturer, Tray } from "electron";
 import path from "path";
 import { ContextPoller } from "./services/context-poller";
 import { createTray } from "./tray";
@@ -80,6 +74,11 @@ function startPoller() {
     onContextChange: (ctx: FullContext) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("context-update", ctx);
+      }
+    },
+    onArticleAnalysis: (analysis) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("article-analysis", analysis);
       }
     },
   });

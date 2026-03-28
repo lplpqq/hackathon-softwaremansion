@@ -1,14 +1,12 @@
 import { FullContext, DetectionMode } from "../types";
 import { detectFrontmostApp } from "./app-detector";
-import {
-  detectBrowserTab,
-  isSupportedBrowser,
-} from "./browser-tab-detector";
+import { detectBrowserTab, isSupportedBrowser } from "./browser-tab-detector";
 import { classifyDomain } from "./domain-classifier";
-import { notifyBackend } from "./backend-client";
+import { notifyBackend, checkArticle, ArticleAnalysis } from "./backend-client";
 
 export interface ContextPollerOptions {
   onContextChange: (ctx: FullContext) => void;
+  onArticleAnalysis?: (analysis: ArticleAnalysis) => void;
   pollIntervalMs?: number;
 }
 
@@ -16,11 +14,14 @@ export class ContextPoller {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private lastFingerprint: string = "";
   private onContextChange: (ctx: FullContext) => void;
+  private onArticleAnalysis?: (analysis: ArticleAnalysis) => void;
   private pollIntervalMs: number;
   private polling = false;
+  private lastCheckedUrl: string = "";
 
   constructor(options: ContextPollerOptions) {
     this.onContextChange = options.onContextChange;
+    this.onArticleAnalysis = options.onArticleAnalysis;
     this.pollIntervalMs = options.pollIntervalMs ?? 750;
   }
 
@@ -67,6 +68,26 @@ export class ContextPoller {
 
         if (classification?.isSupportedDomain) {
           notifyBackend(context);
+        }
+
+        // Call check-article API for news domains
+        if (
+          mode === "news" &&
+          tab &&
+          tab.url !== this.lastCheckedUrl &&
+          this.onArticleAnalysis
+        ) {
+          this.lastCheckedUrl = tab.url;
+          checkArticle(tab.url).then((analysis) => {
+            if (analysis && this.onArticleAnalysis) {
+              this.onArticleAnalysis(analysis);
+            }
+          });
+        }
+
+        // Clear analysis when leaving news mode
+        if (mode !== "news" && this.lastCheckedUrl) {
+          this.lastCheckedUrl = "";
         }
       }
     } catch (err) {

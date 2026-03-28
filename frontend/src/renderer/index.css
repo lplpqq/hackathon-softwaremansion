@@ -113,6 +113,141 @@ body {
   font-style: italic;
 }
 
+/* View toggle */
+.view-toggle {
+  display: flex;
+  gap: 0;
+  padding: 0 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 5px 0;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #555;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.toggle-btn:hover {
+  color: #999;
+}
+
+.toggle-btn.active {
+  color: #d0d0da;
+  border-bottom-color: #4ecdc4;
+}
+
+/* Scrollable content for analysis view */
+.overlay-content.scrollable {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.overlay-content.scrollable::-webkit-scrollbar {
+  width: 4px;
+}
+
+.overlay-content.scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overlay-content.scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+
+/* Analysis sections */
+.analysis-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.analysis-text {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #b8b8c4;
+  white-space: normal;
+}
+
+/* Score bar */
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.score-bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.score-value {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Manipulation section */
+.manipulation-label {
+  color: #f0c040 !important;
+  font-size: 10px;
+}
+
+.manipulation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.manipulation-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 2px solid #f0c040;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.manipulation-quote {
+  font-size: 11px;
+  font-style: italic;
+  color: #d0d0da;
+  line-height: 1.45;
+  margin-bottom: 3px;
+}
+
+.manipulation-explanation {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.4;
+}
+
 /* Opacity slider */
 .opacity-bar {
   display: flex;
