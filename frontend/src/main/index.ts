@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   ipcMain,
   desktopCapturer,
+  screen,
   Tray,
   session,
   systemPreferences,
@@ -27,9 +28,17 @@ let tray: Tray | null = null;
 let poller: ContextPoller | null = null;
 
 function createOverlayWindow(): BrowserWindow {
+  const { workArea } = screen.getPrimaryDisplay();
+  const defaultHeight = Math.max(180, Math.round(workArea.height * 0.4));
+  const aspectRatio = 340 / 240;
+  const defaultWidth = Math.max(280, Math.round(defaultHeight * aspectRatio));
+  const inset = 24;
+
   const win = new BrowserWindow({
-    width: 340,
-    height: 240,
+    width: defaultWidth,
+    height: defaultHeight,
+    x: workArea.x + workArea.width - defaultWidth - inset,
+    y: workArea.y + inset,
     minWidth: 280,
     minHeight: 180,
     alwaysOnTop: true,
