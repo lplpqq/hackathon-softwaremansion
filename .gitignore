@@ -269,3 +269,7 @@ ehthumbs.db
 # Windows shortcuts #
 #####################
 *.lnk
+
+
+
+.claude/settings.local.json
