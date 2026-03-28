@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file='.env',
+        env_file='../.env',
         case_sensitive=False
     )
 
@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     fishjam_management_token: str
     google_api_key: str
     gemini_model: str
-    gemini_system_instruction: str
 
 
 def load_settings() -> Settings:
