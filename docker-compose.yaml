@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - backend/.env
+    environment:
+      - FISHJAM_SERVER_URL=http://fishjam:8080
+    depends_on:
+      - fishjam
+
+  # Adding Fishjam service if you want to run it locally with Docker
+  fishjam:
+    image: public.ecr.aws/softwaremansion/fishjam:0.25.0
+    ports:
+      - "8080:8080"
+    environment:
+      - FISHJAM_MANAGEMENT_TOKEN=development_token
+      - FISHJAM_ID=my_fishjam_id
+      - FISHJAM_URL=http://localhost:8080
+      - FISHJAM_WEBRTC_TCP_LISTEN_PORT=50000
+      - FISHJAM_WEBRTC_UDP_LISTEN_PORT=50000
