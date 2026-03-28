@@ -1,35 +1,34 @@
 import { useEffect, useState } from "react";
 
-interface DesktopSource {
-  id: string;
+interface ActiveWindow {
+  pid: number;
   name: string;
+  title: string;
 }
 
 declare global {
   interface Window {
     electronAPI: {
-      getDesktopSources: () => Promise<DesktopSource[]>;
+      getDesktopSources: () => Promise<{ id: string; name: string }[]>;
+      getActiveWindows: () => Promise<ActiveWindow[]>;
     };
   }
 }
 
 export default function App() {
-  const [sources, setSources] = useState<DesktopSource[]>([]);
+  const [windows, setWindows] = useState<ActiveWindow[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
     setLoading(true);
-    const result = await window.electronAPI.getDesktopSources();
-    setSources(result);
+    const result = await window.electronAPI.getActiveWindows();
+    setWindows(result);
     setLoading(false);
   }
 
   useEffect(() => {
     refresh();
   }, []);
-
-  const screens = sources.filter((s) => s.id.startsWith("screen:"));
-  const windows = sources.filter((s) => s.id.startsWith("window:"));
 
   return (
     <main className="app">
@@ -40,38 +39,20 @@ export default function App() {
         </button>
       </div>
 
-      {screens.length > 0 && (
-        <section>
-          <h2 className="section-title">Screens</h2>
-          <div className="grid">
-            {screens.map((s) => (
-              <div key={s.id} className="card screen-card">
-                <div className="card-icon">🖥</div>
-                <div className="card-name">{s.name}</div>
-                <div className="card-id">{s.id}</div>
-              </div>
-            ))}
-          </div>
-        </section>
+      {!loading && windows.length === 0 && (
+        <p className="empty">No windows found.</p>
       )}
 
-      {windows.length > 0 && (
-        <section>
-          <h2 className="section-title">Windows ({windows.length})</h2>
-          <div className="grid">
-            {windows.map((s) => (
-              <div key={s.id} className="card window-card">
-                <div className="card-icon">▣</div>
-                <div className="card-name">{s.name}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
-      {!loading && sources.length === 0 && (
-        <p className="empty">No sources found.</p>
-      )}
+      <div className="grid">
+        {windows.map((w) => (
+          <div key={w.pid} className="card">
+            <div className="card-process">{w.name}</div>
+            <div className="card-title">{w.title}</div>
+            <div className="card-pid">PID {w.pid}</div>
+          </div>
+        ))}
+      </div>
     </main>
   );
 }

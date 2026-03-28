@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(powershell -Command \"Test-Path 'C:\\\\FP\\\\hackathon-softwaremansion\\\\frontend\\\\src\\\\renderer\\\\main.tsx'\")"
+      "Bash(powershell -Command \"Test-Path 'C:\\\\FP\\\\hackathon-softwaremansion\\\\frontend\\\\src\\\\renderer\\\\main.tsx'\")",
+      "Bash(dir C:FPhackathon-softwaremansionfrontendnode_modules)",
+      "Bash(npm list:*)",
+      "Bash(cmd /c \"cd C:\\\\FP\\\\hackathon-softwaremansion\\\\frontend && npm list active-win 2>&1\")",
+      "Bash(powershell -Command \"cd C:\\\\FP\\\\hackathon-softwaremansion\\\\frontend; npm list active-win 2>&1\")",
+      "Bash(powershell.exe -NoProfile -Command \"Set-Location 'C:\\\\FP\\\\hackathon-softwaremansion\\\\frontend'; npm list active-win 2>&1\")",
+      "Bash(npm install:*)",
+      "Bash(ls C:/FP/hackathon-softwaremansion/frontend/node_modules/active-win/*.d.ts)"
     ]
   }
 }
