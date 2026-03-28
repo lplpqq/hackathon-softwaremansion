@@ -7,6 +7,7 @@ import { notifyBackend, checkArticle, ArticleAnalysis } from "./backend-client";
 export interface ContextPollerOptions {
   onContextChange: (ctx: FullContext) => void;
   onArticleAnalysis?: (analysis: ArticleAnalysis) => void;
+  onAnalysisStart?: () => void;
   pollIntervalMs?: number;
 }
 
@@ -15,6 +16,7 @@ export class ContextPoller {
   private lastFingerprint: string = "";
   private onContextChange: (ctx: FullContext) => void;
   private onArticleAnalysis?: (analysis: ArticleAnalysis) => void;
+  private onAnalysisStart?: () => void;
   private pollIntervalMs: number;
   private polling = false;
   private lastCheckedUrl: string = "";
@@ -22,6 +24,7 @@ export class ContextPoller {
   constructor(options: ContextPollerOptions) {
     this.onContextChange = options.onContextChange;
     this.onArticleAnalysis = options.onArticleAnalysis;
+    this.onAnalysisStart = options.onAnalysisStart;
     this.pollIntervalMs = options.pollIntervalMs ?? 750;
   }
 
@@ -78,6 +81,7 @@ export class ContextPoller {
           this.onArticleAnalysis
         ) {
           this.lastCheckedUrl = tab.url;
+          if (this.onAnalysisStart) this.onAnalysisStart();
           checkArticle(tab.url).then((analysis) => {
             if (analysis && this.onArticleAnalysis) {
               this.onArticleAnalysis(analysis);

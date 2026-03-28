@@ -53,6 +53,7 @@ declare global {
       onArticleAnalysis: (
         callback: (analysis: ArticleAnalysis) => void,
       ) => () => void;
+      onAnalysisStart: (callback: () => void) => () => void;
     };
   }
 }
