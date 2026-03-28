@@ -180,37 +180,63 @@ export default function App() {
             {!isLoading && !error && analysis && (
               <>
                 {/* Credibility score */}
-                <div className="analysis-section">
-                  <span className="label">Credibility</span>
-                  <div className="score-row">
-                    <div className="score-bar-track">
-                      <div
-                        className="score-bar-fill"
-                        style={{
-                          width: `${analysis.source_credibility_score * 100}%`,
-                          backgroundColor: scoreColor(
-                            analysis.source_credibility_score,
-                          ),
-                        }}
-                      />
-                    </div>
-                    <span
-                      className="score-value"
-                      style={{
-                        color: scoreColor(analysis.source_credibility_score),
-                      }}
-                    >
-                      {(analysis.source_credibility_score * 100).toFixed(0)}%
-                    </span>
+                <div className="analysis-summary-row">
+                  {/* Publisher */}
+                  <div className="analysis-section publisher-section">
+                    <span className="label">Publisher</span>
+                    <p className="analysis-text">
+                      {analysis.publisher_description}
+                    </p>
                   </div>
-                </div>
 
-                {/* Publisher */}
-                <div className="analysis-section">
-                  <span className="label">Publisher</span>
-                  <p className="analysis-text">
-                    {analysis.publisher_description}
-                  </p>
+                  {/* Credibility score */}
+                  <div className="analysis-section speedometer-section">
+                    <span className="label">Credibility</span>
+                    <div className="speedometer-container">
+                      <svg viewBox="0 0 100 100" className="speedometer-svg">
+                        {/* Background Track (225 degrees) */}
+                        <path
+                          d="M 13.04 65.3 A 40 40 0 1 1 86.96 65.3"
+                          fill="none"
+                          stroke="rgba(255,255,255,0.05)"
+                          strokeWidth="6"
+                          strokeLinecap="round"
+                        />
+                        {/* Gradient Track Progress */}
+                        <path
+                          d="M 13.04 65.3 A 40 40 0 1 1 86.96 65.3"
+                          fill="none"
+                          stroke="url(#speed-gradient)"
+                          strokeWidth="6"
+                          strokeLinecap="round"
+                          strokeDasharray="157.08"
+                          strokeDashoffset={
+                            157.08 * (1 - analysis.source_credibility_score)
+                          }
+                          className="speed-progress"
+                        />
+                        <defs>
+                          <linearGradient
+                            id="speed-gradient"
+                            x1="0%"
+                            y1="100%"
+                            x2="100%"
+                            y2="100%"
+                          >
+                            <stop offset="0%" stopColor="#ff4d4d" />
+                            <stop offset="50%" stopColor="#ffd11a" />
+                            <stop offset="100%" stopColor="#2ecc71" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      <div className="speedometer-text">
+                        <span className="speedometer-value">
+                          {(analysis.source_credibility_score * 100).toFixed(0)}
+                        </span>
+                        <span className="speedometer-percent"></span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Short analysis */}
