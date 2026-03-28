@@ -35,22 +35,7 @@ async def check_article(
     else:
         raise HTTPException(status_code=400, detail="Unsupported article source!")
 
-    system_instruction = ("You are professional lie/manipulation detector. "
-                          "I found an online article, which I would like you to analyze for potential user misleadings. "
-                          "I would like you to provide your assessment of this article based on its truthfullness and trustworthiness. "
-                          "The input is as follows. "
-                          "Firstly, source - the website where this article was published (e.g. bbc, cnbc). "
-                          "You need to evaluate how well-known and reputable this website is. "
-                          "Secondly, author - the person who wrote the report. You need to find the brief information about this person. "
-                          "Lastly, text - the actual content of the story. "
-                          "You  must evaluate the truthfulness of this article primarly based on it. "
-                          "As a response I expect to receive a JSON string with next fields: "
-                          "source_credibility_score - a float from 0 to 1 of how reputable the `source` website AND `author` is;"
-                          "publisher_description - a laconic, 1 sentence max description of who the author of this article is and whether he/she is worth of trust;"
-                          "short_text_analysis - the brief summary (1-2 sentences) of how manipulative/emotionfull/provoking the text is;"
-                          "potential_manipulation_text_chunks - list of exact pieces of text from original article which are the most emotion-invoking/provocative/baitfull."
-                          "The format of potential_manipulation_text_chunks is `quote` - the precise, 1-to-1 quote from the original text (no more than 2 sentences per chunk),"
-                          "`explanation` - your 4-5 words explanation of why is this `quote` dangerous!")
+    system_instruction = settings.prompts["check_article"]
     system_instruction += f"\n{article_data.model_dump_json()}"
 
     try:
@@ -93,18 +78,7 @@ async def check_video(
         raise HTTPException(status_code=400, detail="Unsupported video source!")
     video_info = get_youtube_video_info(video_url)
 
-    system_instruction = ("You are professional lie/manipulation detector. "
-                          "I found an online video, which I would like you to analyze for potential user misleadings. "
-                          "I would like you to provide your assessment of this article based on its trustworthiness. "
-                          "The input is as follows. "
-                          "Firstly, source - the website where this video was published (e.g. youtube, twitter). "
-                          "You need to evaluate how well-known and reputable this website is. "
-                          "Secondly, publisher - the person who published the video. You need to find the brief information about this person. "
-                          "Lastly, title - the actual title of the video. "
-                          "You  must evaluate the how clickbait this title is. "
-                          "As a response I expect to receive a JSON string with next fields: "
-                          "source_credibility_score - a float from 0 to 1 of how reputable the `source` website AND `publisher` is;"
-                          "title_provocativeness_description - a short 1-2 description saying how much the title is provocative. use simple grammar english")
+    system_instruction = settings.prompts["check_video"]
     system_instruction += f"\n{video_info.model_dump_json()}"
 
     try:

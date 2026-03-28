@@ -4,7 +4,6 @@ import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fishjam import FishjamClient, PeerOptions
-
 from google import genai
 
 from src.agent import run_analysis_agent

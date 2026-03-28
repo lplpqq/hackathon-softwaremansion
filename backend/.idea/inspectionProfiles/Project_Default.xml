@@ -40,6 +40,9 @@
           <option value="urllib3" />
           <option value="wrapt" />
           <option value="yarl" />
+          <option value="uvicorn" />
+          <option value="google-genai" />
+          <option value="fishjam-server-sdk" />
         </list>
       </option>
     </inspection_tool>

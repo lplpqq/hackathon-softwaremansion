@@ -13,9 +13,8 @@ def get_bbc_article_info(url: str) -> ArticleInfo:
     data = soup.find('script', attrs={'id': '__NEXT_DATA__'}).get_text()
     json_data = json.loads(data)
     main_data = json_data['props']['pageProps']
-    metadata = main_data['metadata']
     # title = metadata['seoHeadline']
-    author = metadata['contributor']
+    author = soup.find('meta', attrs={'property': 'cXenseParse:author'}).get('content')
     page_content = main_data['page']
 
     text_blocks = []

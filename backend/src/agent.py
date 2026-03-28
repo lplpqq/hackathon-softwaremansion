@@ -1,15 +1,9 @@
 """
-Agent module — real-time lie/misinformation detector.
-
-Optimized for continuous monotonic speech (e.g. politician, YouTuber, lecturer)
-where there are few natural pauses.
-
-Strategy:
-  - Gemini Live API transcribes audio in real time (input_audio_transcription)
-  - We chunk the transcript by WORD COUNT (not punctuation)
-  - Every ~5-8 words we fire a generate_content call for instant fact-check
-  - Complete JSON result is pushed to the frontend immediately
-  - Multiple analyses can run in parallel for overlapping speed
+Gemini Live API transcribes audio in real time (input_audio_transcription)
+We chunk the transcript by WORD COUNT (not punctuation)
+Every ~5-8 words we fire a generate_content call for instant fact-check
+Complete JSON result is pushed to the frontend immediately
+Multiple analyses can run in parallel for overlapping speed
 """
 
 import asyncio
@@ -18,11 +12,10 @@ import logging
 import traceback
 from collections.abc import Callable, Awaitable
 
-from google import genai
-from google.genai import types
-
 from fishjam import FishjamClient, AgentOptions
 from fishjam.integrations.gemini import GeminiIntegration
+from google import genai
+from google.genai import types
 
 from src.config_reader import Settings
 
@@ -31,7 +24,7 @@ logger = logging.getLogger(__name__)
 # ── Tuning ────────────────────────────────────────────────────────────────
 
 # Fire analysis every N words
-WORDS_PER_CHUNK = 6
+WORDS_PER_CHUNK = 10
 
 # Also fire if buffer sits idle for this many seconds (catches trailing words)
 IDLE_FLUSH_SECONDS = 2.5
@@ -39,18 +32,7 @@ IDLE_FLUSH_SECONDS = 2.5
 # Max parallel analysis calls
 MAX_CONCURRENT = 4
 
-# ── Prompt ────────────────────────────────────────────────────────────────
 
-ANALYSIS_PROMPT = (
-    "You are an instant fact-checker. You receive a short phrase from a live video.\n"
-    "Evaluate it FAST. Respond with ONLY valid JSON, nothing else.\n\n"
-    "Fields:\n"
-    '  "verdict": "TRUE" | "FALSE" | "MISLEADING" | "UNVERIFIABLE" | "OPINION" | "NO_CLAIM"\n'
-    '  "confidence": number 0.0-1.0\n'
-    '  "explanation": string (max 15 words)\n'
-    '  "claim": string (the factual claim, or empty if none)\n\n'
-    "Phrase: "
-)
 
 
 async def run_analysis_agent(
@@ -71,7 +53,7 @@ async def run_analysis_agent(
         live_config = types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],
             system_instruction=types.Content(
-                parts=[types.Part(text="Transcribe everything. Do not respond.")]
+                parts=[types.Part(text=settings.prompts["transcribe_audio"])]
             ),
             input_audio_transcription=types.AudioTranscriptionConfig(),
         )
@@ -88,12 +70,12 @@ async def run_analysis_agent(
             semaphore = asyncio.Semaphore(MAX_CONCURRENT)
             stop = asyncio.Event()
 
-            # Word buffer — shared between receive task and flusher
+            # word buffer — shared between receive task and flusher
             words: list[str] = []
             words_lock = asyncio.Lock()
             last_word_time: float = 0.0
 
-            # ── Fishjam → queue ───────────────────────────────────────────
+            # fishjam to queue
             async def fishjam_to_queue():
                 try:
                     async for td in fishjam_session.receive():
@@ -103,7 +85,7 @@ async def run_analysis_agent(
                 except Exception as e:
                     logger.error("fishjam_to_queue: %s", e)
 
-            # ── queue → Gemini Live ───────────────────────────────────────
+            # queue → Gemini Live
             async def send_audio():
                 try:
                     while True:
@@ -119,7 +101,6 @@ async def run_analysis_agent(
                 except Exception as e:
                     logger.error("send_audio: %s", e)
 
-            # ── Receive transcription, chunk by word count ────────────────
             async def receive_transcript():
                 nonlocal last_word_time
                 try:
@@ -138,7 +119,7 @@ async def run_analysis_agent(
                                     words.extend(new_words)
                                     last_word_time = asyncio.get_event_loop().time()
 
-                                    # Fire when we hit the word threshold
+                                    # fire when we hit the word threshold
                                     while len(words) >= WORDS_PER_CHUNK:
                                         chunk_text = " ".join(words[:WORDS_PER_CHUNK])
                                         del words[:WORDS_PER_CHUNK]
@@ -152,7 +133,7 @@ async def run_analysis_agent(
                 finally:
                     stop.set()
 
-            # ── Flush leftover words on silence ───────────────────────────
+            # flush leftover words on silence
             async def idle_flusher():
                 nonlocal last_word_time
                 try:
@@ -175,11 +156,10 @@ async def run_analysis_agent(
                             text = await asyncio.wait_for(chunk_queue.get(), timeout=1.0)
                         except asyncio.TimeoutError:
                             continue
-                        asyncio.create_task(_analyze(text, gen_ai, semaphore, on_text))
+                        asyncio.create_task(_analyze(settings, text, gen_ai, semaphore, on_text))
                 except asyncio.CancelledError:
                     pass
 
-            # ── Go ────────────────────────────────────────────────────────
             tasks = [
                 asyncio.create_task(fishjam_to_queue()),
                 asyncio.create_task(send_audio()),
@@ -199,6 +179,7 @@ async def run_analysis_agent(
 
 
 async def _analyze(
+    settings: Settings,
     text: str,
     gen_ai: genai.Client,
     semaphore: asyncio.Semaphore,
@@ -207,9 +188,10 @@ async def _analyze(
     """Fact-check a single chunk and push JSON to frontend."""
     async with semaphore:
         try:
+            analysis_prompt = settings.prompts["agent_analysis_prompt"]
             resp = await gen_ai.aio.models.generate_content(
                 model="gemini-2.5-flash",
-                contents=f'{ANALYSIS_PROMPT}"{text}"',
+                contents=f'{analysis_prompt}"{text}"',
                 config={"temperature": 0.1},
             )
 
