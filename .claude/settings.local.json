@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Test-Path 'C:\\\\FP\\\\hackathon-softwaremansion\\\\frontend\\\\src\\\\renderer\\\\main.tsx'\")"
+    ]
+  }
+}
