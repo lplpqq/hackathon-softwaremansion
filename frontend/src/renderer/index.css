@@ -2,121 +2,160 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 html,
 body,
 #root {
   height: 100%;
-  margin: 0;
+  background: transparent;
+  overflow: hidden;
 }
 
 body {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 1rem;
-  color: #e8e8ed;
-  background: #0a0a0f;
+  font-family: "JetBrains Mono", "SF Mono", monospace;
+  font-size: 12px;
+  color: #e0e0e8;
+  -webkit-font-smoothing: antialiased;
 }
 
-.app {
-  min-height: 100%;
-  padding: 2rem;
+.overlay-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: rgba(12, 12, 20, 0.82);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
 }
 
-.header {
+/* Drag handle */
+.drag-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2rem;
+  padding: 8px 12px;
+  -webkit-app-region: drag;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.5rem;
+.app-title {
   font-family: "Instrument Serif", Georgia, serif;
-  letter-spacing: 0.02em;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  color: #d0d0da;
 }
 
-.refresh-btn {
-  background: #1a1a2e;
-  color: #e8e8ed;
-  border: 1px solid #2a2a4a;
-  padding: 0.4rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
-  transition: background 0.15s;
+.mode-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #000;
+  -webkit-app-region: no-drag;
 }
 
-.refresh-btn:hover:not(:disabled) {
-  background: #2a2a4a;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.section-title {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #666;
-  margin: 0 0 1rem;
-}
-
-section {
-  margin-bottom: 2rem;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.75rem;
-}
-
-.card {
-  background: #111118;
-  border: 1px solid #1e1e2e;
-  border-radius: 8px;
-  padding: 1rem;
+/* Content area */
+.overlay-content {
+  flex: 1;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  transition: border-color 0.15s;
+  gap: 6px;
+  overflow: hidden;
 }
 
-.card:hover {
-  border-color: #3a3a5a;
+.info-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  line-height: 1.4;
 }
 
-.screen-card {
-  border-color: #1e2e1e;
+.label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #555;
+  flex-shrink: 0;
+  min-width: 52px;
 }
 
-.screen-card:hover {
-  border-color: #2a5a2a;
+.value {
+  font-size: 12px;
+  color: #b8b8c4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.card-icon {
-  font-size: 1.4rem;
+.value.domain {
+  font-weight: 600;
 }
 
-.card-name {
-  font-size: 0.85rem;
-  color: #c8c8d4;
-  word-break: break-word;
-  line-height: 1.3;
+.value.title {
+  font-size: 11px;
+  color: #888;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-.card-id {
-  font-size: 0.7rem;
+.value.waiting {
+  color: #555;
+  font-style: italic;
+}
+
+/* Opacity slider */
+.opacity-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.opacity-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: #444;
+  flex-shrink: 0;
 }
 
-.empty {
-  color: #444;
-  text-align: center;
-  margin-top: 4rem;
+.opacity-slider {
+  flex: 1;
+  height: 3px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #888;
+  cursor: pointer;
+}
+
+.opacity-slider::-webkit-slider-thumb:hover {
+  background: #aaa;
 }
