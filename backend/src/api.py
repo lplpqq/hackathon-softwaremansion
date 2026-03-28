@@ -189,7 +189,7 @@ def create_app(settings: Settings) -> FastAPI:
     async def ask_gemini(body: CheckArticleRequest):
         from google import genai
 
-        article_data = get_article_data()
+        # article_data = get_article_data()
         # {
         #     "source": "...",
         #     "author": "...",
