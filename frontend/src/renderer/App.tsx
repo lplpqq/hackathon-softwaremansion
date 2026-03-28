@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import type { FullContext, DetectionMode, ArticleAnalysis } from "./types";
+import type {
+  FullContext,
+  DetectionMode,
+  ArticleAnalysis,
+  LiveAnalysis,
+} from "./types";
+import { useFishjamAudio } from "./hooks/useFishjamAudio";
 
 const MODE_LABELS: Record<DetectionMode, string> = {
   idle: "IDLE",
@@ -30,6 +36,19 @@ export default function App() {
   const [analysis, setAnalysis] = useState<ArticleAnalysis | null>(null);
   const [view, setView] = useState<ViewMode>("context");
   const [opacity, setOpacity] = useState(0.9);
+  const [liveMessages, setLiveMessages] = useState<LiveAnalysis[]>([]);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioCaptureRequested, setAudioCaptureRequested] = useState(false);
+  const [audioStartToken, setAudioStartToken] = useState(0);
+
+  const mode = context?.mode ?? "idle";
+
+  useFishjamAudio({
+    active: mode === "video" && audioCaptureRequested,
+    startToken: audioStartToken,
+    onAnalysis: (msg) => setLiveMessages((prev) => [msg, ...prev].slice(0, 50)),
+    onError: (err) => setAudioError(err),
+  });
 
   useEffect(() => {
     const unsubCtx = window.electronAPI.onContextUpdate((ctx) => {
@@ -38,6 +57,13 @@ export default function App() {
       if (ctx.mode !== "news") {
         setAnalysis(null);
         setView("context");
+      }
+      // Clear live audio state when leaving video mode
+      if (ctx.mode !== "video") {
+        setLiveMessages([]);
+        setAudioError(null);
+        setAudioCaptureRequested(false);
+        setAudioStartToken(0);
       }
     });
     const unsubAnalysis = window.electronAPI.onArticleAnalysis((data) => {
@@ -55,7 +81,13 @@ export default function App() {
     window.electronAPI.setOpacity(value);
   };
 
-  const mode = context?.mode ?? "idle";
+  const handleStartSystemAudio = () => {
+    setAudioError(null);
+    setLiveMessages([]);
+    setAudioCaptureRequested(true);
+    setAudioStartToken((prev) => prev + 1);
+  };
+
   const modeColor = MODE_COLORS[mode];
 
   return (
@@ -209,6 +241,34 @@ export default function App() {
           )
         )}
       </div>
+
+      {/* Live audio analysis panel (video mode) */}
+      {mode === "video" && (
+        <div className="live-analysis-bar no-drag">
+          {!audioCaptureRequested ? (
+            <button
+              className="live-analysis-action"
+              onClick={handleStartSystemAudio}
+            >
+              Start System Audio
+            </button>
+          ) : audioError ? (
+            <>
+              <span className="live-analysis-error">⚠ {audioError}</span>
+              <button
+                className="live-analysis-action"
+                onClick={handleStartSystemAudio}
+              >
+                Retry
+              </button>
+            </>
+          ) : liveMessages.length === 0 ? (
+            <span className="live-analysis-waiting">🎙 Listening…</span>
+          ) : (
+            <p className="live-analysis-text">{liveMessages[0].text}</p>
+          )}
+        </div>
+      )}
 
       {/* Opacity slider */}
       <div className="opacity-bar no-drag">

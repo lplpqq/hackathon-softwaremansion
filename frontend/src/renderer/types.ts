@@ -27,6 +27,18 @@ export interface FullContext {
   mode: DetectionMode;
 }
 
+export interface SessionData {
+  session_id: string;
+  room_id: string;
+  peer_token: string;
+  ws_url: string;
+}
+
+export interface LiveAnalysis {
+  text: string;
+  timestamp: number;
+}
+
 export interface ManipulationChunk {
   quote: string;
   explanation: string;
@@ -39,15 +51,23 @@ export interface ArticleAnalysis {
   potential_manipulation_text_chunks: ManipulationChunk[];
 }
 
-export interface DesktopSource {
-  id: string;
-  name: string;
+export interface SystemAudioCaptureSupport {
+  platform: string;
+  supported: boolean;
+  isPackaged: boolean;
+  screenAccessStatus:
+    | "not-determined"
+    | "granted"
+    | "denied"
+    | "restricted"
+    | "unknown";
 }
 
 declare global {
   interface Window {
     electronAPI: {
-      getDesktopSources: () => Promise<DesktopSource[]>;
+      createSession: () => Promise<SessionData>;
+      getSystemAudioCaptureSupport: () => Promise<SystemAudioCaptureSupport>;
       setOpacity: (value: number) => Promise<void>;
       onContextUpdate: (callback: (context: FullContext) => void) => () => void;
       onArticleAnalysis: (

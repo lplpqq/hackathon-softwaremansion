@@ -1,7 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  getDesktopSources: () => ipcRenderer.invoke("get-desktop-sources"),
+  createSession: () => ipcRenderer.invoke("create-session"),
+  getSystemAudioCaptureSupport: () =>
+    ipcRenderer.invoke("get-system-audio-capture-support"),
   setOpacity: (value: number) => ipcRenderer.invoke("set-opacity", value),
   onContextUpdate: (callback: (context: unknown) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, context: unknown) =>

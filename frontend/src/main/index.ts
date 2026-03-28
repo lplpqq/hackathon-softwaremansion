@@ -1,8 +1,25 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer, Tray } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  desktopCapturer,
+  Tray,
+  session,
+  systemPreferences,
+} from "electron";
 import path from "path";
 import { ContextPoller } from "./services/context-poller";
 import { createTray } from "./tray";
 import { FullContext } from "./types";
+
+if (process.platform === "darwin" && !app.isPackaged) {
+  // In dev on macOS, the parent app (Terminal/IDE) usually lacks
+  // NSAudioCaptureUsageDescription, which can yield a dead audio stream.
+  app.commandLine.appendSwitch(
+    "disable-features",
+    "MacCatapLoopbackAudioForScreenShare",
+  );
+}
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -35,6 +52,7 @@ function createOverlayWindow(): BrowserWindow {
 
   if (isDev) {
     win.loadURL("http://localhost:5173");
+    win.webContents.openDevTools({ mode: "detach" });
   } else {
     win.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
@@ -46,18 +64,75 @@ function createOverlayWindow(): BrowserWindow {
   return win;
 }
 
+const BACKEND_BASE = "https://4403-185-28-19-74.ngrok-free.app";
+
+function setupMediaCapture() {
+  session.defaultSession.setPermissionCheckHandler(
+    (_webContents, permission) => permission === "media",
+  );
+
+  session.defaultSession.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      if (permission === "display-capture" || permission === "media") {
+        callback(true);
+        return;
+      }
+
+      callback(false);
+    },
+  );
+
+  session.defaultSession.setDisplayMediaRequestHandler(
+    async (request, callback) => {
+      try {
+        const [screenSource] = await desktopCapturer.getSources({
+          types: ["screen"],
+        });
+
+        if (!screenSource) {
+          callback({});
+          return;
+        }
+
+        callback({
+          video: screenSource,
+          audio:
+            process.platform === "win32" && request.audioRequested
+              ? "loopback"
+              : undefined,
+        });
+      } catch (error) {
+        console.error("[display-media-request]", error);
+        callback({});
+      }
+    },
+    { useSystemPicker: process.platform === "darwin" },
+  );
+}
+
 function setupIPC() {
-  // Existing: desktop sources for audio capture
-  ipcMain.handle("get-desktop-sources", async () => {
-    try {
-      const sources = await desktopCapturer.getSources({
-        types: ["screen", "window"],
-      });
-      return sources.map((s) => ({ id: s.id, name: s.name }));
-    } catch (err) {
-      console.error("[get-desktop-sources]", err);
-      return [];
+  // Create Fishjam session — runs in main process to avoid renderer CORS
+  ipcMain.handle("create-session", async () => {
+    const res = await fetch(`${BACKEND_BASE}/create-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      throw new Error(`create-session failed: ${res.status}`);
     }
+    return res.json();
+  });
+
+  ipcMain.handle("get-system-audio-capture-support", () => {
+    return {
+      platform: process.platform,
+      supported: process.platform === "darwin",
+      isPackaged: app.isPackaged,
+      screenAccessStatus:
+        process.platform === "darwin"
+          ? systemPreferences.getMediaAccessStatus("screen")
+          : "unknown",
+    };
   });
 
   // Overlay opacity control
@@ -93,6 +168,7 @@ app.whenReady().then(() => {
 
   mainWindow = createOverlayWindow();
   setupIPC();
+  setupMediaCapture();
   startPoller();
 
   tray = createTray({

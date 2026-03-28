@@ -2,7 +2,7 @@ import { FullContext, DetectionMode } from "../types";
 import { detectFrontmostApp } from "./app-detector";
 import { detectBrowserTab, isSupportedBrowser } from "./browser-tab-detector";
 import { classifyDomain } from "./domain-classifier";
-import { notifyBackend, checkArticle, ArticleAnalysis } from "./backend-client";
+import { checkArticle, ArticleAnalysis } from "./backend-client";
 
 export interface ContextPollerOptions {
   onContextChange: (ctx: FullContext) => void;
@@ -65,10 +65,6 @@ export class ContextPoller {
       if (fingerprint !== this.lastFingerprint) {
         this.lastFingerprint = fingerprint;
         this.onContextChange(context);
-
-        if (classification?.isSupportedDomain) {
-          notifyBackend(context);
-        }
 
         // Call check-article API for news domains
         if (

@@ -37,7 +37,10 @@
       "output": "release"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "extendInfo": {
+        "NSAudioCaptureUsageDescription": "Authently captures system audio so it can stream it to Fishjam for live analysis."
+      }
     },
     "win": {
       "target": "nsis"

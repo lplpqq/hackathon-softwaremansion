@@ -5,6 +5,8 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react()],
+  envDir: __dirname,
+  envPrefix: "VITE_",
   root: path.resolve(__dirname, "src/renderer"),
   base: "./",
   build: {
