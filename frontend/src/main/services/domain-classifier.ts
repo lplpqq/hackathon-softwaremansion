@@ -15,7 +15,12 @@ const NEWS_DOMAINS = [
   "politico.com",
 ];
 
-const VIDEO_DOMAINS = ["youtube.com", "youtu.be", "twitch.tv", "vimeo.com"];
+const VIDEO_DOMAINS = [
+  "youtube.com",
+  "youtu.be",
+  "twitch.tv",
+  "vimeo.com"
+];
 
 function matchesDomain(hostname: string, pattern: string): boolean {
   return hostname === pattern || hostname.endsWith("." + pattern);

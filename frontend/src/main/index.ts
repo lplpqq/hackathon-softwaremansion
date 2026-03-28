@@ -11,6 +11,7 @@ import path from "path";
 import { ContextPoller } from "./services/context-poller";
 import { createTray } from "./tray";
 import { FullContext } from "./types";
+import { executeScriptInTab } from "./services/browser-tab-detector";
 
 if (process.platform === "darwin" && !app.isPackaged) {
   // In dev on macOS, the parent app (Terminal/IDE) usually lacks
@@ -155,6 +156,19 @@ function startPoller() {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("article-analysis", analysis);
       }
+    },
+    onAnalysisStart: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("article-analysis-start");
+      }
+    },
+    onAnalysisError: (message) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("article-analysis-error", message);
+      }
+    },
+    onHighlightScript: (script, bundleId) => {
+      executeScriptInTab(bundleId, script);
     },
   });
   poller.start();
