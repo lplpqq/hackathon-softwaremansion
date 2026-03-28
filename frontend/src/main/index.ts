@@ -86,6 +86,11 @@ function startPoller() {
         mainWindow.webContents.send("article-analysis-start");
       }
     },
+    onAnalysisError: (message) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("article-analysis-error", message);
+      }
+    },
   });
   poller.start();
 }

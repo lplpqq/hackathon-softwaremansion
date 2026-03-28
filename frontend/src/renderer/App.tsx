@@ -30,6 +30,7 @@ export default function App() {
   const [analysis, setAnalysis] = useState<ArticleAnalysis | null>(null);
   const [view, setView] = useState<ViewMode>("context");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [opacity, setOpacity] = useState(0.9);
 
   useEffect(() => {
@@ -38,22 +39,31 @@ export default function App() {
       // Clear analysis when leaving news mode
       if (ctx.mode !== "news") {
         setAnalysis(null);
+        setError(null);
         setView("context");
       }
     });
     const unsubAnalysis = window.electronAPI.onArticleAnalysis((data) => {
       setAnalysis(data);
       setIsLoading(false);
+      setError(null);
       setView("analysis");
     });
     const unsubStart = window.electronAPI.onAnalysisStart(() => {
       setIsLoading(true);
+      setError(null);
+      setView("analysis");
+    });
+    const unsubError = window.electronAPI.onAnalysisError((msg) => {
+      setError(msg);
+      setIsLoading(false);
       setView("analysis");
     });
     return () => {
       unsubCtx();
       unsubAnalysis();
       unsubStart();
+      unsubError();
     };
   }, []);
 
@@ -76,7 +86,7 @@ export default function App() {
       </div>
 
       {/* View toggle (only show when analysis is available) */}
-      {(analysis || isLoading) && (
+      {(analysis || isLoading || error) && (
         <div className="view-toggle no-drag">
           <button
             className={`toggle-btn ${view === "context" ? "active" : ""}`}
@@ -159,7 +169,15 @@ export default function App() {
                 <span className="loading-label">Analyzing Article with Gemini...</span>
               </div>
             )}
-            {!isLoading && analysis && (
+
+            {error && !isLoading && (
+              <div className="error-container">
+                <span className="error-icon">⚠</span>
+                <p className="error-message">{error}</p>
+              </div>
+            )}
+
+            {!isLoading && !error && analysis && (
               <>
                 {/* Credibility score */}
                 <div className="analysis-section">

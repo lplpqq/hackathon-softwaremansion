@@ -8,6 +8,7 @@ export interface ContextPollerOptions {
   onContextChange: (ctx: FullContext) => void;
   onArticleAnalysis?: (analysis: ArticleAnalysis) => void;
   onAnalysisStart?: () => void;
+  onAnalysisError?: (message: string) => void;
   pollIntervalMs?: number;
 }
 
@@ -17,6 +18,7 @@ export class ContextPoller {
   private onContextChange: (ctx: FullContext) => void;
   private onArticleAnalysis?: (analysis: ArticleAnalysis) => void;
   private onAnalysisStart?: () => void;
+  private onAnalysisError?: (message: string) => void;
   private pollIntervalMs: number;
   private polling = false;
   private lastCheckedUrl: string = "";
@@ -25,6 +27,7 @@ export class ContextPoller {
     this.onContextChange = options.onContextChange;
     this.onArticleAnalysis = options.onArticleAnalysis;
     this.onAnalysisStart = options.onAnalysisStart;
+    this.onAnalysisError = options.onAnalysisError;
     this.pollIntervalMs = options.pollIntervalMs ?? 750;
   }
 
@@ -85,6 +88,8 @@ export class ContextPoller {
           checkArticle(tab.url).then((analysis) => {
             if (analysis && this.onArticleAnalysis) {
               this.onArticleAnalysis(analysis);
+            } else if (this.onAnalysisError) {
+              this.onAnalysisError("Failed to analyze article. The analysis endpoint is currently unavailable (502).");
             }
           });
         }

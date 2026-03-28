@@ -26,4 +26,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("article-analysis-start", handler);
     };
   },
+  onAnalysisError: (callback: (message: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, message: string) =>
+      callback(message);
+    ipcRenderer.on("article-analysis-error", handler);
+    return () => {
+      ipcRenderer.removeListener("article-analysis-error", handler);
+    };
+  },
 });

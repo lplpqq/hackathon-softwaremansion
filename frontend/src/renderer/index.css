@@ -334,3 +334,24 @@ body {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ── Error UI ── */
+.error-container {
+  padding: 16px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 24px;
+  color: #ff6b6b;
+}
+
+.error-message {
+  font-size: 11px;
+  color: #b8b8c4;
+  line-height: 1.5;
+}

@@ -54,6 +54,7 @@ declare global {
         callback: (analysis: ArticleAnalysis) => void,
       ) => () => void;
       onAnalysisStart: (callback: () => void) => () => void;
+      onAnalysisError: (callback: (message: string) => void) => () => void;
     };
   }
 }
