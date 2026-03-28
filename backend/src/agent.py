@@ -1,15 +1,19 @@
 """
-Agent module — bridges Fishjam audio streams with Google Gemini Live API.
+Agent module — real-time lie/misinformation detector.
 
-Uses the same queue + event-loop architecture as the reference GeminiLive class:
-- Fishjam audio is fed into an asyncio.Queue
-- Gemini receives from that queue and streams responses
-- input_transcription  → what the user said  → forwarded via on_text
-- output_transcription → Gemini's analysis   → forwarded via on_text
-- No audio is sent back into the Fishjam room
+Optimized for continuous monotonic speech (e.g. politician, YouTuber, lecturer)
+where there are few natural pauses.
+
+Strategy:
+  - Gemini Live API transcribes audio in real time (input_audio_transcription)
+  - We chunk the transcript by WORD COUNT (not punctuation)
+  - Every ~5-8 words we fire a generate_content call for instant fact-check
+  - Complete JSON result is pushed to the frontend immediately
+  - Multiple analyses can run in parallel for overlapping speed
 """
 
 import asyncio
+import json
 import logging
 import traceback
 from collections.abc import Callable, Awaitable
@@ -24,6 +28,30 @@ from src.config_reader import Settings
 
 logger = logging.getLogger(__name__)
 
+# ── Tuning ────────────────────────────────────────────────────────────────
+
+# Fire analysis every N words
+WORDS_PER_CHUNK = 6
+
+# Also fire if buffer sits idle for this many seconds (catches trailing words)
+IDLE_FLUSH_SECONDS = 2.5
+
+# Max parallel analysis calls
+MAX_CONCURRENT = 4
+
+# ── Prompt ────────────────────────────────────────────────────────────────
+
+ANALYSIS_PROMPT = (
+    "You are an instant fact-checker. You receive a short phrase from a live video.\n"
+    "Evaluate it FAST. Respond with ONLY valid JSON, nothing else.\n\n"
+    "Fields:\n"
+    '  "verdict": "TRUE" | "FALSE" | "MISLEADING" | "UNVERIFIABLE" | "OPINION" | "NO_CLAIM"\n'
+    '  "confidence": number 0.0-1.0\n'
+    '  "explanation": string (max 15 words)\n'
+    '  "claim": string (the factual claim, or empty if none)\n\n'
+    "Phrase: "
+)
+
 
 async def run_analysis_agent(
     settings: Settings,
@@ -32,15 +60,7 @@ async def run_analysis_agent(
     room_id: str,
     on_text: Callable[[str], Awaitable[None]],
 ) -> None:
-    """
-    Audio from Fishjam peers → Gemini → text analysis delivered via on_text.
 
-    No audio is sent back into the room. Gemini must use AUDIO response
-    modality (required by native-audio models), but we discard the audio
-    and only use the transcription side-channels.
-    """
-
-    # -- Fishjam agent setup (input side: 16 kHz to match Gemini) -----------
     agent_options = AgentOptions(
         output=GeminiIntegration.GEMINI_INPUT_AUDIO_SETTINGS,
     )
@@ -48,47 +68,46 @@ async def run_analysis_agent(
 
     async with agent.connect() as fishjam_session:
 
-        # -- Gemini session config ------------------------------------------
-        config = types.LiveConnectConfig(
+        live_config = types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],
             system_instruction=types.Content(
-                parts=[types.Part(
-                    text="You are professional lie/manipulation detector. "
-                         "I am watching a video right now, which I would like you to analyze for potential misleadings of me. "
-                         "I would like you to provide your assessment based on how factual the information is being said. "
-                         "You can here the video audio that I am watching right now. "
-                         "As a response I expect to receive a JSON string with next fields: is_factual_information - a boolean value (true or false) of whether the information being said/shown is true or not; short_text_analysis is a short summary of the data provided in the video"
-                )]
+                parts=[types.Part(text="Transcribe everything. Do not respond.")]
             ),
             input_audio_transcription=types.AudioTranscriptionConfig(),
-            output_audio_transcription=types.AudioTranscriptionConfig(),
         )
 
-        logger.info("Connecting to Gemini Live model=%s for room=%s", settings.gemini_model, room_id)
+        logger.info("Connecting Gemini Live model=%s room=%s", settings.gemini_model, room_id)
 
         async with gen_ai.aio.live.connect(
             model=settings.gemini_model,
-            config=config,
+            config=live_config,
         ) as gemini_session:
 
-            # -- Queue: Fishjam audio → Gemini ------------------------------
-            audio_input_queue: asyncio.Queue[bytes] = asyncio.Queue()
+            audio_queue: asyncio.Queue[bytes] = asyncio.Queue()
+            chunk_queue: asyncio.Queue[str] = asyncio.Queue()
+            semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+            stop = asyncio.Event()
 
-            async def fishjam_to_queue() -> None:
-                """Read audio from Fishjam peers and enqueue it."""
+            # Word buffer — shared between receive task and flusher
+            words: list[str] = []
+            words_lock = asyncio.Lock()
+            last_word_time: float = 0.0
+
+            # ── Fishjam → queue ───────────────────────────────────────────
+            async def fishjam_to_queue():
                 try:
-                    async for track_data in fishjam_session.receive():
-                        await audio_input_queue.put(track_data.data)
+                    async for td in fishjam_session.receive():
+                        await audio_queue.put(td.data)
                 except asyncio.CancelledError:
-                    logger.debug("fishjam_to_queue cancelled")
+                    pass
                 except Exception as e:
-                    logger.error("fishjam_to_queue error: %s\n%s", e, traceback.format_exc())
+                    logger.error("fishjam_to_queue: %s", e)
 
-            async def send_audio() -> None:
-                """Drain the queue and forward chunks to Gemini."""
+            # ── queue → Gemini Live ───────────────────────────────────────
+            async def send_audio():
                 try:
                     while True:
-                        chunk = await audio_input_queue.get()
+                        chunk = await audio_queue.get()
                         await gemini_session.send_realtime_input(
                             audio=types.Blob(
                                 data=chunk,
@@ -96,113 +115,129 @@ async def run_analysis_agent(
                             )
                         )
                 except asyncio.CancelledError:
-                    logger.debug("send_audio cancelled")
+                    pass
                 except Exception as e:
-                    logger.error("send_audio error: %s\n%s", e, traceback.format_exc())
+                    logger.error("send_audio: %s", e)
 
-            # -- Event queue: Gemini responses → on_text --------------------
-            event_queue: asyncio.Queue[dict | None] = asyncio.Queue()
-
-            async def receive_loop() -> None:
-                """
-                Consume Gemini responses, extract transcriptions, and
-                push events onto the event queue.
-                Audio inline_data is intentionally discarded.
-                """
+            # ── Receive transcription, chunk by word count ────────────────
+            async def receive_transcript():
+                nonlocal last_word_time
                 try:
                     while True:
-                        async for response in gemini_session.receive():
-                            server_content = response.server_content
-
-                            if response.go_away:
-                                logger.warning("Gemini GoAway: %s", response.go_away)
-
-                            if server_content is None:
+                        async for resp in gemini_session.receive():
+                            sc = resp.server_content
+                            if sc is None:
                                 continue
+                            if sc.input_transcription and sc.input_transcription.text:
+                                fragment = sc.input_transcription.text
+                                new_words = fragment.split()
+                                if not new_words:
+                                    continue
 
-                            # What the USER said (input transcription)
-                            if (
-                                server_content.input_transcription
-                                and server_content.input_transcription.text
-                            ):
-                                await event_queue.put({
-                                    "type": "user",
-                                    "text": server_content.input_transcription.text,
-                                })
+                                async with words_lock:
+                                    words.extend(new_words)
+                                    last_word_time = asyncio.get_event_loop().time()
 
-                            # What GEMINI said back (output transcription)
-                            if (
-                                server_content.output_transcription
-                                and server_content.output_transcription.text
-                            ):
-                                await event_queue.put({
-                                    "type": "gemini",
-                                    "text": server_content.output_transcription.text,
-                                })
+                                    # Fire when we hit the word threshold
+                                    while len(words) >= WORDS_PER_CHUNK:
+                                        chunk_text = " ".join(words[:WORDS_PER_CHUNK])
+                                        del words[:WORDS_PER_CHUNK]
+                                        await chunk_queue.put(chunk_text)
 
-                            if server_content.turn_complete:
-                                await event_queue.put({"type": "turn_complete"})
-
-                            if server_content.interrupted:
-                                await event_queue.put({"type": "interrupted"})
-
-                            # We intentionally ignore model_turn audio
-                            # (inline_data) — we only want text.
-
-                        # receive() iterator ended (e.g. after turn_complete),
-                        # re-enter to keep listening for the next turn
-                        logger.debug("Gemini receive iterator completed, re-entering")
-
+                        logger.debug("Live receive ended, re-entering")
                 except asyncio.CancelledError:
-                    logger.debug("receive_loop cancelled")
+                    pass
                 except Exception as e:
-                    logger.error("receive_loop error: %s\n%s", e, traceback.format_exc())
-                    await event_queue.put({"type": "error", "error": str(e)})
+                    logger.error("receive_transcript: %s\n%s", e, traceback.format_exc())
                 finally:
-                    logger.info("receive_loop exiting")
-                    await event_queue.put(None)  # sentinel to stop event consumer
+                    stop.set()
 
-            # -- Start all tasks --------------------------------------------
-            fishjam_task = asyncio.create_task(fishjam_to_queue(), name="fishjam_to_queue")
-            send_task = asyncio.create_task(send_audio(), name="send_audio")
-            recv_task = asyncio.create_task(receive_loop(), name="receive_loop")
+            # ── Flush leftover words on silence ───────────────────────────
+            async def idle_flusher():
+                nonlocal last_word_time
+                try:
+                    while not stop.is_set():
+                        await asyncio.sleep(0.5)
+                        now = asyncio.get_event_loop().time()
+                        async with words_lock:
+                            if words and (now - last_word_time) >= IDLE_FLUSH_SECONDS:
+                                chunk_text = " ".join(words)
+                                words.clear()
+                                await chunk_queue.put(chunk_text)
+                except asyncio.CancelledError:
+                    pass
 
-            logger.info("Analysis agent running for room %s", room_id)
+            # ── Consume chunks → fire parallel analyses ───────────────────
+            async def analyzer():
+                try:
+                    while not stop.is_set():
+                        try:
+                            text = await asyncio.wait_for(chunk_queue.get(), timeout=1.0)
+                        except asyncio.TimeoutError:
+                            continue
+                        asyncio.create_task(_analyze(text, gen_ai, semaphore, on_text))
+                except asyncio.CancelledError:
+                    pass
 
+            # ── Go ────────────────────────────────────────────────────────
+            tasks = [
+                asyncio.create_task(fishjam_to_queue()),
+                asyncio.create_task(send_audio()),
+                asyncio.create_task(receive_transcript()),
+                asyncio.create_task(idle_flusher()),
+                asyncio.create_task(analyzer()),
+            ]
+
+            logger.info("Lie detector running for room %s", room_id)
             try:
-                # Consume the event queue and forward text to the caller
-                while True:
-                    event = await event_queue.get()
-
-                    if event is None:
-                        # Sentinel — receive_loop exited
-                        break
-
-                    if event["type"] == "error":
-                        logger.error("Gemini error event: %s", event["error"])
-                        break
-
-                    # if event["type"] == "user":
-                    #     await on_text(f"[User]: {event['text']}")
-
-                    elif event["type"] == "gemini":
-                        print(event["text"])
-                        await on_text(event['text'])
-
-                    elif event["type"] == "turn_complete":
-                        await on_text("\n")
-
-                    # elif event["type"] == "interrupted":
-                    #     await on_text("[interrupted]\n")
-
+                await stop.wait()
             finally:
-                logger.info("Cleaning up agent tasks for room %s", room_id)
-                fishjam_task.cancel()
-                send_task.cancel()
-                recv_task.cancel()
-                # Wait for tasks to actually finish
-                await asyncio.gather(
-                    fishjam_task, send_task, recv_task,
-                    return_exceptions=True,
-                )
-                logger.info("Agent fully stopped for room %s", room_id)
+                for t in tasks:
+                    t.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                logger.info("Agent stopped for room %s", room_id)
+
+
+async def _analyze(
+    text: str,
+    gen_ai: genai.Client,
+    semaphore: asyncio.Semaphore,
+    on_text: Callable[[str], Awaitable[None]],
+):
+    """Fact-check a single chunk and push JSON to frontend."""
+    async with semaphore:
+        try:
+            resp = await gen_ai.aio.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=f'{ANALYSIS_PROMPT}"{text}"',
+                config={"temperature": 0.1},
+            )
+
+            raw = (resp.text or "").strip()
+            if raw.startswith("```"):
+                lines = raw.split("\n")
+                lines = [l for l in lines if not l.strip().startswith("```")]
+                raw = "\n".join(lines).strip()
+
+            parsed = json.loads(raw)
+            parsed["transcript"] = text
+
+            verdict = parsed.get("verdict", "").upper()
+            parsed["alarm"] = verdict in ("FALSE", "MISLEADING")
+
+            await on_text(json.dumps(parsed))
+
+            if parsed["alarm"]:
+                logger.warning("🚨 ALARM: \"%s\" → %s", text, parsed.get("explanation", ""))
+
+        except json.JSONDecodeError:
+            await on_text(json.dumps({
+                "verdict": "ERROR",
+                "confidence": 0,
+                "explanation": "Parse error",
+                "claim": text,
+                "transcript": text,
+                "alarm": False,
+            }))
+        except Exception as e:
+            logger.error("_analyze failed: %s", e)
