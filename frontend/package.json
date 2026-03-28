@@ -39,7 +39,8 @@
     "mac": {
       "target": "dmg",
       "extendInfo": {
-        "NSAudioCaptureUsageDescription": "Authently captures system audio so it can stream it to Fishjam for live analysis."
+        "NSAudioCaptureUsageDescription": "Authently captures system audio so it can stream it to Fishjam for live analysis.",
+        "NSMicrophoneUsageDescription": "Authently accesses audio input devices, including virtual audio devices such as BlackHole, to stream audio to Fishjam."
       }
     },
     "win": {

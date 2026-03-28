@@ -24,11 +24,56 @@ function truncate(text: string, max: number): string {
 }
 
 type ViewMode = "context" | "analysis";
+type LiveVerdict = "FACT" | "OPINION" | "UNSURE";
+
+interface ParsedLiveAnalysis {
+  verdict: LiveVerdict;
+  confidence: number;
+  explanation: string;
+  claim: string;
+  transcript: string;
+  alarm: boolean;
+}
 
 function scoreColor(score: number): string {
   if (score >= 0.8) return "#4ecdc4";
   if (score >= 0.5) return "#f0c040";
   return "#ff6b6b";
+}
+
+function parseLiveAnalysis(text: string): ParsedLiveAnalysis | null {
+  try {
+    const parsed = JSON.parse(text) as Partial<ParsedLiveAnalysis>;
+
+    if (
+      typeof parsed.verdict !== "string" ||
+      typeof parsed.confidence !== "number" ||
+      typeof parsed.explanation !== "string" ||
+      typeof parsed.claim !== "string" ||
+      typeof parsed.transcript !== "string" ||
+      typeof parsed.alarm !== "boolean"
+    ) {
+      return null;
+    }
+
+    return {
+      verdict: parsed.verdict as LiveVerdict,
+      confidence: parsed.confidence,
+      explanation: parsed.explanation,
+      claim: parsed.claim,
+      transcript: parsed.transcript,
+      alarm: parsed.alarm,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function verdictColor(verdict: LiveVerdict, alarm: boolean): string {
+  if (alarm) return "#ff6b6b";
+  if (verdict === "FACT") return "#4ecdc4";
+  if (verdict === "OPINION") return "#f0c040";
+  return "#b8b8c4";
 }
 
 export default function App() {
@@ -89,6 +134,10 @@ export default function App() {
   };
 
   const modeColor = MODE_COLORS[mode];
+  const latestLiveMessage = liveMessages[0];
+  const parsedLiveAnalysis = latestLiveMessage
+    ? parseLiveAnalysis(latestLiveMessage.text)
+    : null;
 
   return (
     <div className="overlay-root">
@@ -264,8 +313,36 @@ export default function App() {
             </>
           ) : liveMessages.length === 0 ? (
             <span className="live-analysis-waiting">🎙 Listening…</span>
+          ) : parsedLiveAnalysis ? (
+            <div className="live-analysis-card">
+              <div className="live-analysis-header">
+                <span
+                  className="live-analysis-verdict"
+                  style={{
+                    color: verdictColor(
+                      parsedLiveAnalysis.verdict,
+                      parsedLiveAnalysis.alarm,
+                    ),
+                  }}
+                >
+                  {parsedLiveAnalysis.alarm
+                    ? "ALERT"
+                    : parsedLiveAnalysis.verdict}
+                </span>
+                <span className="live-analysis-confidence">
+                  {(parsedLiveAnalysis.confidence * 100).toFixed(0)}%
+                </span>
+              </div>
+              <p className="live-analysis-claim">{parsedLiveAnalysis.claim}</p>
+              <p className="live-analysis-explanation">
+                {parsedLiveAnalysis.explanation}
+              </p>
+              <p className="live-analysis-transcript">
+                “{parsedLiveAnalysis.transcript}”
+              </p>
+            </div>
           ) : (
-            <p className="live-analysis-text">{liveMessages[0].text}</p>
+            <p className="live-analysis-text">{latestLiveMessage?.text}</p>
           )}
         </div>
       )}

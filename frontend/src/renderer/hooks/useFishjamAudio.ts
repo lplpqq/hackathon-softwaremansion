@@ -16,7 +16,8 @@ export function useFishjamAudio({
   onAnalysis,
   onError,
 }: UseFishjamAudioOptions) {
-  const { joinRoom, leaveRoom } = useConnection();
+  const { joinRoom, leaveRoom, peerStatus, reconnectionStatus } =
+    useConnection();
   const { setStream } = useCustomSource("desktop-audio");
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -32,6 +33,13 @@ export function useFishjamAudio({
     onAnalysisRef.current = onAnalysis;
     onErrorRef.current = onError;
   });
+
+  useEffect(() => {
+    console.log("[useFishjamAudio] Fishjam state", {
+      peerStatus,
+      reconnectionStatus,
+    });
+  }, [peerStatus, reconnectionStatus]);
 
   const formatUnknownError = useCallback((err: unknown): string => {
     if (err instanceof Error) {
@@ -61,6 +69,15 @@ export function useFishjamAudio({
     return String(err);
   }, []);
 
+  const listAudioInputDeviceLabels = useCallback(async () => {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+
+    return devices
+      .filter((device) => device.kind === "audioinput")
+      .map((device) => device.label || "(hidden label)")
+      .filter((label, index, labels) => labels.indexOf(label) === index);
+  }, []);
+
   const getVirtualSystemAudioStream = useCallback(async () => {
     const findVirtualAudioDevice = (devices: MediaDeviceInfo[]) =>
       devices.find(
@@ -86,10 +103,14 @@ export function useFishjamAudio({
     }
 
     if (!virtualDevice) {
+      const audioInputLabels = await listAudioInputDeviceLabels();
+      console.log("[useFishjamAudio] available audio inputs", audioInputLabels);
       throw new Error(
         "macOS system audio capture is unavailable. Install a virtual audio device like BlackHole, Soundflower, Loopback, or Background Music, route system output into it, then retry.",
       );
     }
+
+    console.log("[useFishjamAudio] using virtual audio device", virtualDevice.label);
 
     return navigator.mediaDevices.getUserMedia({
       audio: {
@@ -97,33 +118,49 @@ export function useFishjamAudio({
       },
       video: false,
     });
-  }, []);
+  }, [listAudioInputDeviceLabels]);
 
   const getMacOsSystemAudioStream = useCallback(
-    async (isPackaged: boolean) => {
-      try {
-        const displayStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: {
-            suppressLocalAudioPlayback: false,
-          },
-          // @ts-expect-error Chromium display-capture hints are not in TS yet.
-          systemAudio: "include",
-          // @ts-expect-error Chromium display-capture hints are not in TS yet.
-          windowAudio: "system",
-        });
+    async ({
+      isPackaged,
+      canAttemptNativeCapture,
+    }: {
+      isPackaged: boolean;
+      canAttemptNativeCapture: boolean;
+    }) => {
+      if (canAttemptNativeCapture) {
+        try {
+          const displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: {
+              suppressLocalAudioPlayback: false,
+            },
+            // @ts-expect-error Chromium display-capture hints are not in TS yet.
+            systemAudio: "include",
+            // @ts-expect-error Chromium display-capture hints are not in TS yet.
+            windowAudio: "system",
+          });
 
-        const audioTracks = displayStream.getAudioTracks();
-        const videoTracks = displayStream.getVideoTracks();
+          const audioTracks = displayStream.getAudioTracks();
+          const videoTracks = displayStream.getVideoTracks();
 
-        if (audioTracks.length > 0) {
-          videoTracks.forEach((track) => track.stop());
-          return new MediaStream(audioTracks);
+          if (audioTracks.length > 0) {
+            console.log("[useFishjamAudio] using native macOS system audio track");
+            videoTracks.forEach((track) => track.stop());
+            return new MediaStream(audioTracks);
+          }
+
+          displayStream.getTracks().forEach((track) => track.stop());
+          console.warn(
+            "[useFishjamAudio] macOS display capture returned no audio tracks",
+          );
+        } catch (error) {
+          console.warn("[useFishjamAudio] display-media audio capture failed", error);
         }
-
-        displayStream.getTracks().forEach((track) => track.stop());
-      } catch (error) {
-        console.warn("[useFishjamAudio] display-media audio capture failed", error);
+      } else {
+        console.warn(
+          "[useFishjamAudio] screen permission is not granted, skipping native display capture and trying virtual audio device",
+        );
       }
 
       try {
@@ -202,17 +239,13 @@ export function useFishjamAudio({
         );
       }
 
-      if (
-        captureSupport.screenAccessStatus !== "granted" &&
-        captureSupport.screenAccessStatus !== "not-determined"
-      ) {
-        throw new Error(
-          "macOS screen capture permission is denied. Re-enable it in System Settings > Privacy & Security > Screen & System Audio Recording.",
-        );
-      }
-
       console.log("[useFishjamAudio] requesting desktop media stream");
-      const stream = await getMacOsSystemAudioStream(captureSupport.isPackaged);
+      const stream = await getMacOsSystemAudioStream({
+        isPackaged: captureSupport.isPackaged,
+        canAttemptNativeCapture:
+          captureSupport.screenAccessStatus === "granted" ||
+          captureSupport.screenAccessStatus === "not-determined",
+      });
       streamRef.current = stream;
 
       console.log("[useFishjamAudio] creating session");
@@ -233,7 +266,19 @@ export function useFishjamAudio({
       }
 
       console.log("[useFishjamAudio] joining Fishjam room");
-      await joinRoom({ peerToken: session.peer_token });
+      try {
+        await joinRoom({ peerToken: session.peer_token });
+      } catch (joinError) {
+        console.error("[useFishjamAudio] joinRoom context", {
+          peerStatus,
+          reconnectionStatus,
+          hasPeerToken: Boolean(session.peer_token),
+          fishjamId: import.meta.env.VITE_FISHJAM_ID,
+        });
+        throw new Error(
+          `joinRoom failed: ${formatUnknownError(joinError)}`,
+        );
+      }
       console.log("[useFishjamAudio] joined Fishjam room");
 
       console.log("[useFishjamAudio] setting Fishjam custom stream");
@@ -276,7 +321,15 @@ export function useFishjamAudio({
     }
 
     startInFlightRef.current = false;
-  }, [joinRoom, setStream, cleanup, formatUnknownError, getMacOsSystemAudioStream]);
+  }, [
+    joinRoom,
+    setStream,
+    cleanup,
+    formatUnknownError,
+    getMacOsSystemAudioStream,
+    peerStatus,
+    reconnectionStatus,
+  ]);
 
   useEffect(() => {
     if (!active) {

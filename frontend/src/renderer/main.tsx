@@ -1,4 +1,3 @@
-import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { FishjamProvider } from "@fishjam-cloud/react-client";
 import App from "./App";
@@ -15,9 +14,7 @@ if (!FISHJAM_ID) {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <FishjamProvider fishjamId={FISHJAM_ID}>
-      <App />
-    </FishjamProvider>
-  </StrictMode>,
+  <FishjamProvider fishjamId={FISHJAM_ID} debug>
+    <App />
+  </FishjamProvider>,
 );
