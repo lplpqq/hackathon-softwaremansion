@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 async def run_analysis_agent(
     settings: Settings,
+    fishjam_client: FishjamClient,
+    gen_ai: genai.Client,
     room_id: str,
     on_text: Callable[[str], Awaitable[None]],
 ) -> None:
@@ -28,12 +30,6 @@ async def run_analysis_agent(
     The `on_text` callback receives incremental text chunks as they stream in
     from Gemini, so the frontend can display results in real time.
     """
-    fishjam_client = FishjamClient(
-        fishjam_id=settings.fishjam_id,
-        management_token=settings.fishjam_management_token,
-    )
-
-    gen_ai = genai.Client(api_key=settings.google_api_key)
 
     # Create the agent — still needs audio settings for the *input* side
     agent_options = AgentOptions(
@@ -48,7 +44,7 @@ async def run_analysis_agent(
             model=settings.gemini_model,
             config={
                 "response_modalities": [Modality.AUDIO],  # this should be audio!
-                "system_instruction": settings.gemini_system_instruction,
+                "system_instruction": "Transcribe what you hear"
             },
         ) as gemini_session:
 

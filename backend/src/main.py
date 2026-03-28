@@ -6,7 +6,6 @@ import logging
 import sys
 
 from src.api import create_app
-from src.config_reader import load_settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,8 +14,7 @@ logging.basicConfig(
 )
 
 
-settings = load_settings()
-app = create_app(settings)
+app = create_app()
 
 
 def main() -> None:

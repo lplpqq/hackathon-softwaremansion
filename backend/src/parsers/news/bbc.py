@@ -3,7 +3,7 @@ import json
 import requests
 from bs4 import BeautifulSoup
 
-from src.parsers.article_info import ArticleInfo, ArticleOrigin
+from src.parsers.news.article_info import ArticleInfo, ArticleOrigin
 
 
 def get_bbc_article_info(url: str) -> ArticleInfo:
@@ -25,8 +25,9 @@ def get_bbc_article_info(url: str) -> ArticleInfo:
             for content in v['contents']:
                 if content['type'] == 'text':
                     for block in content['model']['blocks']:
-                        block_text = block['model']['text']
-                        text_blocks.append(block_text)
+                        if block['type'] == 'paragraph':
+                            block_text = block['model']['text']
+                            text_blocks.append(block_text)
 
     return ArticleInfo(
         source=ArticleOrigin.BBC,
