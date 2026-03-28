@@ -24,7 +24,7 @@ function truncate(text: string, max: number): string {
 }
 
 type ViewMode = "context" | "analysis";
-type LiveVerdict = "FACT" | "OPINION" | "UNSURE";
+type LiveVerdict = "FACT" | "OPINION" | "UNSURE" | "NO_CLAIM";
 
 interface ParsedLiveAnalysis {
   verdict: LiveVerdict;
@@ -134,10 +134,15 @@ export default function App() {
   };
 
   const modeColor = MODE_COLORS[mode];
-  const latestLiveMessage = liveMessages[0];
-  const parsedLiveAnalysis = latestLiveMessage
-    ? parseLiveAnalysis(latestLiveMessage.text)
-    : null;
+  const visibleLiveMessages = liveMessages
+    .map((message) => ({
+      raw: message,
+      parsed: parseLiveAnalysis(message.text),
+    }))
+    .filter(
+      (message) => !message.parsed || message.parsed.verdict !== "NO_CLAIM",
+    )
+    .reverse();
 
   return (
     <div className="overlay-root">
@@ -175,17 +180,8 @@ export default function App() {
           /* ── Context view ── */
           context ? (
             <>
-              <div className="info-row">
-                <span className="label">App</span>
-                <span className="value">{context.app.appName}</span>
-              </div>
-
               {context.tab && (
                 <>
-                  <div className="info-row">
-                    <span className="label">Browser</span>
-                    <span className="value">{context.tab.browserName}</span>
-                  </div>
                   <div className="info-row">
                     <span className="label">Domain</span>
                     <span
@@ -311,38 +307,48 @@ export default function App() {
                 Retry
               </button>
             </>
-          ) : liveMessages.length === 0 ? (
+          ) : visibleLiveMessages.length === 0 ? (
             <span className="live-analysis-waiting">🎙 Listening…</span>
-          ) : parsedLiveAnalysis ? (
-            <div className="live-analysis-card">
-              <div className="live-analysis-header">
-                <span
-                  className="live-analysis-verdict"
-                  style={{
-                    color: verdictColor(
-                      parsedLiveAnalysis.verdict,
-                      parsedLiveAnalysis.alarm,
-                    ),
-                  }}
-                >
-                  {parsedLiveAnalysis.alarm
-                    ? "ALERT"
-                    : parsedLiveAnalysis.verdict}
-                </span>
-                <span className="live-analysis-confidence">
-                  {(parsedLiveAnalysis.confidence * 100).toFixed(0)}%
-                </span>
-              </div>
-              <p className="live-analysis-claim">{parsedLiveAnalysis.claim}</p>
-              <p className="live-analysis-explanation">
-                {parsedLiveAnalysis.explanation}
-              </p>
-              <p className="live-analysis-transcript">
-                “{parsedLiveAnalysis.transcript}”
-              </p>
-            </div>
           ) : (
-            <p className="live-analysis-text">{latestLiveMessage?.text}</p>
+            <div className="live-analysis-feed">
+              {visibleLiveMessages.map(({ raw, parsed }) =>
+                parsed ? (
+                  <button
+                    key={raw.timestamp}
+                    type="button"
+                    className="live-analysis-card"
+                    title={parsed.explanation}
+                  >
+                    <div className="live-analysis-header">
+                      <span
+                        className="live-analysis-verdict"
+                        style={{
+                          color: verdictColor(parsed.verdict, parsed.alarm),
+                        }}
+                      >
+                        {parsed.alarm ? "ALERT" : parsed.verdict}
+                      </span>
+                      <span className="live-analysis-confidence">
+                        {(parsed.confidence * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    {parsed.claim ? (
+                      <p className="live-analysis-claim">{parsed.claim}</p>
+                    ) : null}
+                    <p className="live-analysis-explanation">
+                      {parsed.explanation}
+                    </p>
+                    {/* <p className="live-analysis-transcript">
+                      “{parsed.transcript}”
+                    </p> */}
+                  </button>
+                ) : (
+                  <div key={raw.timestamp} className="live-analysis-card">
+                    <p className="live-analysis-text">{raw.text}</p>
+                  </div>
+                ),
+              )}
+            </div>
           )}
         </div>
       )}
