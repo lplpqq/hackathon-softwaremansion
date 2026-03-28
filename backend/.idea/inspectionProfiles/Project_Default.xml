@@ -1,0 +1,54 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="aioboto3" />
+          <option value="aiobotocore" />
+          <option value="aiofiles" />
+          <option value="aiogram" />
+          <option value="aiohappyeyeballs" />
+          <option value="aiohttp" />
+          <option value="aioitertools" />
+          <option value="aiosignal" />
+          <option value="annotated-doc" />
+          <option value="annotated-types" />
+          <option value="anyio" />
+          <option value="attrs" />
+          <option value="boto3" />
+          <option value="botocore" />
+          <option value="certifi" />
+          <option value="dotenv" />
+          <option value="fastapi" />
+          <option value="frozenlist" />
+          <option value="idna" />
+          <option value="jmespath" />
+          <option value="magic-filter" />
+          <option value="multidict" />
+          <option value="propcache" />
+          <option value="pydantic" />
+          <option value="pydantic-settings" />
+          <option value="pydantic_core" />
+          <option value="python-dateutil" />
+          <option value="python-dotenv" />
+          <option value="s3transfer" />
+          <option value="six" />
+          <option value="starlette" />
+          <option value="typing-inspection" />
+          <option value="typing_extensions" />
+          <option value="urllib3" />
+          <option value="wrapt" />
+          <option value="yarl" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N803" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
